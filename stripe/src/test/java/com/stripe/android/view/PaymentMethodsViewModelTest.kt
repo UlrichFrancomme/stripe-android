@@ -1,6 +1,7 @@
 package com.stripe.android.view
 
 import androidx.test.core.app.ApplicationProvider
+import com.google.common.truth.Truth.assertThat
 import com.nhaarman.mockitokotlin2.KArgumentCaptor
 import com.nhaarman.mockitokotlin2.argumentCaptor
 import com.nhaarman.mockitokotlin2.eq
@@ -15,7 +16,6 @@ import com.stripe.android.model.PaymentMethodFixtures
 import kotlin.test.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertNull
-import kotlin.test.assertTrue
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
@@ -32,9 +32,10 @@ class PaymentMethodsViewModelTest {
 
     @Test
     fun getPaymentMethods_whenSuccess_returnsExpectedPaymentMethods() {
-        val paymentMethods = listOf(PaymentMethodFixtures.CARD_PAYMENT_METHOD)
-
-        val liveData = viewModel.getPaymentMethods()
+        var paymentMethods: List<PaymentMethod> = emptyList()
+        viewModel.getPaymentMethods().observeForever {
+            paymentMethods = it.getOrThrow()
+        }
 
         verify(customerSession).getPaymentMethods(
             eq(PaymentMethod.Type.Card),
@@ -49,14 +50,16 @@ class PaymentMethodsViewModelTest {
             listOf(PaymentMethodFixtures.CARD_PAYMENT_METHOD)
         )
 
-        val result =
-            liveData.value as PaymentMethodsViewModel.Result.Success
-        assertEquals(paymentMethods, result.paymentMethods)
+        assertThat(paymentMethods)
+            .isEqualTo(listOf(PaymentMethodFixtures.CARD_PAYMENT_METHOD))
     }
 
     @Test
     fun getPaymentMethods_whenError_returnsExpectedException() {
-        val liveData = viewModel.getPaymentMethods()
+        var throwable: Throwable? = null
+        viewModel.getPaymentMethods().observeForever {
+            throwable = it.exceptionOrNull()
+        }
 
         verify(customerSession).getPaymentMethods(
             eq(PaymentMethod.Type.Card),
@@ -71,9 +74,8 @@ class PaymentMethodsViewModelTest {
             404, "error!", null
         )
 
-        val result =
-            liveData.value as PaymentMethodsViewModel.Result.Error
-        assertTrue(result.exception is APIException)
+        assertThat(throwable)
+            .isInstanceOf(APIException::class.java)
     }
 
     @Test
